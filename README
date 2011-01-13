@@ -1,0 +1,53 @@
+1) Introduction
+
+datacounter.sh
+ - displays a progress bar on stderr of data activity during 
+ read/write operations, mostly in pipes
+
+Inspired by Theiling's 'bar'-'cat' (http://www.theiling.de), but 
+uses only one dd, that is triggered by consequent SIGUSR1 signals
+from an AWK script that intercepts dd's stderr output.
+
+Initially Tested under:
+ - Gentoo Linux 2.6.32-hardened-r9 i686
+ - Bash 4.1.7(2)-release (i686-pc-linux-gnu)
+ - dd (coreutils) 8.5
+ - GNU Awk 3.1.6
+
+2) Usage:
+ datacounter.sh <options>
+   Options are:
+    [-i|--input]  <file>  Input is read from filename
+    [-o|--output] <file>  Output is written to filename
+    [-t|--time]   <n>     Refresh status every second
+    [-q|--quiet]          Do not display anything, be silent
+    [-c|--cleanup]        Remove status after a successfull finish
+    [-s|--size]           Use provided size in bytes to calculate %
+
+ -> Time can be any value, that is accepted by 'sleep'
+ -> Size can be only positive and integer
+ -> Data is not corrupted by specifying smaller/bigger values, than
+    the amount of data that comes from the input.
+ -> If no input/output file option is specified, stdin/out is used.
+ -> If input file is specified, stdin is discarded.
+ -> Options overwrite the previous values
+
+3) Copyright notice
+
+	Copyright (C) 2011  Janos Mattyasovszky
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+(See LICENSE file full a full copy of the GPL License)
