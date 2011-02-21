@@ -15,6 +15,28 @@
 
 #    Copyright 2011 Janos Mattyasovszky <matya at sch.bme.hu>
 
+# Preliminary sanity check: which + dd + gawk
+
+WHICH="`which which 2> /dev/null `" || {
+	echo "Error: which not found in path"
+	exit 1;
+}
+
+DD="`${WHICH} dd 2> /dev/null `" || {
+	echo "Error: dd not found in path" 
+	exit 1;
+}
+
+GAWK="`${WHICH} gawk 2> /dev/null `" || {
+	echo "Error: gawk not found in path"
+	exit 1;
+}
+
+PGREP="`${WHICH} pgrep 2> /dev/null `" || {
+	echo "Error: pgrep not found in path"
+	exit 1;
+}
+
 function showusage() {
 	echo "
 Usage: 
@@ -113,43 +135,86 @@ set -o pipefail
 # 3) We redirect stdout to fd3 (note that stderr ist still on stdout, not fd3!)
 # 4) Finally we close fd3 and fd4, so awk does not inherit them (looks better in /proc/)
 # The order is important, since the fd's count overwrite each other
-dd 0<&4 2>&1 1>&3 3>&- 4>&- | ( [[ $SILENT -eq 1 ]] || awk -v PID=$(pgrep -P $$ dd) -v TIME=${REFRESH_TIME} -v SIZE=${SIZE} 3>&- 4>&- '
-	BEGIN { 
-		hum[1024^3]="GB";
-		hum[1024^2]="MB";
-		hum[1024^1]="KB";
-		hum[1024^0]="bytes";
-		EXITCODE=0;
-		print "kill -s 10 " PID " 2> /dev/null" | "sh";
+
+${DD} 2>&1 0<&4 1>&3 3>&- 4>&- | ( [[ $SILENT -eq 1 ]] || ${GAWK} -v PID=$(${PGREP} -P $$ `basename ${DD}`) -v TIME=${REFRESH_TIME} -v SIZE=${SIZE} 3>&- 4>&- '
+	# Format time in <X>h <Y>m <Z>s format using recursion
+	function format_time(sec, x, fullpart, subpart, f) {
+		if (sec<0) {
+			return;
+		}
+		f[60^2] = "h";
+		f[60^1] = "m";
+		f[60^0] = "s";
+		if (sec==0) {
+			return "one instant";
+		}
+		for (x=60^3; x>=1; x/=60) {
+			if (sec >= x) {
+				fullpart = int(sec/x);
+				subpart = sec - ( fullpart * x );
+				if (subpart == 0) {
+					return sprintf("%s%s", fullpart, f[x] );
+				} else {
+					return sprintf("%s%s %s", fullpart, f[x], format_time(subpart) );
+				}
+				break;
+			}
+		}
 	}
+	# Format size in <X>GB/MB/KB/bytes up to a precision of 3 digits
+	function format_size(size, x, f) {
+		f[1024^3]="GB";
+		f[1024^2]="MB";
+		f[1024^1]="KB";
+		f[1024^0]="bytes";
+
+		for (x=1024^3; x>=1; x/=1024) { 
+			if (size >= x) {
+				return sprintf("%.3f %s", size/x, f[x]);
+			}
+		}
+				
+	}
+
 	function clean() {
 		printf "                           \r";
 	}
+
+	BEGIN { 
+
+		EXITCODE=0;
+		starttime = systime();
+		print "exec kill -s 10 " PID " 2> /dev/null" | "sh";
+	}
+
 	/records/ { next; }
+
 	/byte/ {
-		size=$1
-		speed=$(NF-1) " " $NF
 
 		clean();
+		size=$1;
 		if (size == 0) {
-			printf " [ Waiting for data ] ";
+			printf " [ Waiting for data... ] ";
 		} else {
-			for (x=1024^3; x>=1; x/=1024) { 
-				if (size >= x) {
-					if (SIZE > -1) {
-						printf " [ Transferred %.3f %s (%.2f%%) with %s ] ",size/x, hum[x], size/SIZE*100, speed;
-					} else {
-						printf " [ Transferred %.3f %s with %s ] ",size/x, hum[x], speed;
-					}
-					break;
-				}
+			fsize=format_size($1);
+			speed = $(NF-1) " " $NF
+			timetaken = format_time(systime() - starttime);
+			if (SIZE > -1) {
+				percent = size / SIZE * 100;
+				printf " [ Transferred ~%s (%.2f%%) with %s in %s ] ", fsize, percent, speed, timetaken;
+			} else {
+				printf " [ Transferred ~%s with %s in %s ] ", fsize, speed, timetaken;
 			}
 		}
 		fflush();
 		print "sleep " TIME "; kill -s 10 " PID " 2> /dev/null" |& "sh";
 		next;
 	}
-	{ ERROR=sprintf("\nERROR: %s",$0); EXITCODE=1; }
+
+	{ 
+		ERROR=sprintf("\nERROR: %s",$0); EXITCODE=1; 
+	}
+
 	END {
 		close("sh");
 		if (EXITCODE==1)
