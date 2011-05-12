@@ -23,6 +23,7 @@ Initially Tested under:
     [-q|--quiet]          Do not display anything, be silent
     [-c|--cleanup]        Remove status after a successfull finish
     [-s|--size]           Use provided size in bytes to calculate %
+    [-b|--blocksize] <bs> Provides 'bs=' option to dd
 
  -> Time can be any value, that is accepted by 'sleep'
  -> Size can be only positive and integer
@@ -31,6 +32,7 @@ Initially Tested under:
  -> If no input/output file option is specified, stdin/out is used.
  -> If input file is specified, stdin is discarded.
  -> Options overwrite the previous values
+ -> Block size can be any value, that dd's bs= option accepts
 
 3) Copyright notice
 

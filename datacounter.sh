@@ -48,6 +48,7 @@ Usage:
     [-q|--quiet]          Do not display anything, be silent
     [-c|--cleanup]        Remove status after a successfull finish
     [-s|--size]           Use provided size in bytes to calculate %
+    [-b|--blocksize] <bs> Provides 'bs=' option to dd
 
  -> Time can be any value, that is accepted by 'sleep'
  -> Size can be only positive and integer
@@ -56,6 +57,8 @@ Usage:
  -> If no input/output file option is specified, stdin/out is used.
  -> If input file is specified, stdin is discarded.
  -> Options overwrite the previous values
+ -> Block size can be any value, that dd's bs= option accepts
+
 " >&2
 	exit 255
 }
@@ -77,6 +80,7 @@ REFRESH_TIME=1
 CLEANUP=0
 SILENT=0
 SIZE=-1
+BS=""
 while [ -n "$1" ]; do
 	OPT="$1"
 	shift
@@ -121,6 +125,11 @@ while [ -n "$1" ]; do
 			exec 1>/dev/null
 			SILENT=1
 			;;
+		-b|--blocksize)
+			[ -z "$1" ] && showusage
+			BS="bs=$1"
+			shift
+			;;
 		*)
 			showusage;
 			;;
@@ -136,7 +145,7 @@ set -o pipefail
 # 4) Finally we close fd3 and fd4, so awk does not inherit them (looks better in /proc/)
 # The order is important, since the fd's count overwrite each other
 
-${DD} 2>&1 0<&4 1>&3 3>&- 4>&- | ( [[ $SILENT -eq 1 ]] || ${GAWK} -v PID=$(${PGREP} -P $$ `basename ${DD}`) -v TIME=${REFRESH_TIME} -v SIZE=${SIZE} 3>&- 4>&- '
+${DD} $BS 2>&1 0<&4 1>&3 3>&- 4>&- | ( [[ $SILENT -eq 1 ]] || ${GAWK} -v PID=$(${PGREP} -P $$ `basename ${DD}`) -v TIME=${REFRESH_TIME} -v SIZE=${SIZE} 3>&- 4>&- '
 	# Format time in <X>h <Y>m <Z>s format using recursion
 	function format_time(sec, x, fullpart, subpart, f) {
 		if (sec<0) {
@@ -219,7 +228,7 @@ ${DD} 2>&1 0<&4 1>&3 3>&- 4>&- | ( [[ $SILENT -eq 1 ]] || ${GAWK} -v PID=$(${PGR
 		close("sh");
 		if (EXITCODE==1)
 			printf ERROR;
-		exit; # EXITCODE;
+		exit;
 	}
 ' )
 EXITCODE=$?
